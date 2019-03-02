@@ -47,6 +47,21 @@ def lineRayIntersectionPoint(rayOrigin, rayDirection, point1, point2):
         return [rayOrigin + t1 * rayDirection]
     return []
 
+def aveAngle(angles):
+    sumx = sumy = 0
+    for i in range(1,len(angles)):
+        x1 = angles[i-1][0]
+        y1 = angles[i-1][1]
+        x2 = angles[i][0]
+        y2 = angles[i][1]
+        angle = math.atan2((y2-y1),(x2-x1))
+        x = math.cos(angle)
+        y = math.sin(angle)
+        sumx = sumx + x
+        sumy = sumy + y
+    return math.atan2(sumy,sumx)
+
+
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-b", "--buffer", type=int, default=64,
@@ -58,19 +73,35 @@ args = vars(ap.parse_args())
 # list of tracked points
 greenDuctLower = (49, 82, 40)
 greenDuctUpper = (104, 255, 255)
-puckLower = (18, 151, 157)
-puckUpper = (43, 255, 255)
+puckLower = (161, 0, 0)
+puckUpper = (179, 225, 255)
 pts = deque(maxlen=args["buffer"])
 borderpts = []
 minX = maxX = minY = maxY = 0
 trajQ = deque(maxlen=4)
 
+
 #grab the reference to the webcam
 vs = VideoStream(src=0).start()
+
+timeCount = timeStart = timeStop = elapsedTime = fps = 0
+
 
 while True:
     # grab the current frame
     frame = vs.read()
+
+    #calculate fps
+    if timeCount == 0:
+        timeStart = time.time()
+
+    timeCount = timeCount + 1
+
+    if timeCount == 20:
+        timeStop = time.time()
+        elapsedTime = timeStop - timeStart
+        fps = 20/elapsedTime
+        timeCount = 0
 
     # resize the frame, blur it, and convert it to the HSV
     # color space
@@ -100,6 +131,9 @@ while True:
     cv2.line(frame, (10,320), (590,320), (0,0,255), 2)
     cv2.line(frame, (590,320), (590,10), (0,0,255), 2)
     cv2.line(frame, (590,10), (10,10), (0,0,255), 2)
+
+    #display frames per second on screen
+    cv2.putText(frame,"FPS: %.0f"%fps,(450,310),cv2.FONT_HERSHEY_PLAIN,2.0,(0,0,0))
 
 
     # only proceed if at least one contour was found
@@ -133,7 +167,10 @@ while True:
                 x2 = trajQ[3][0]
                 y2 = trajQ[3][1]
                 line_len = math.sqrt(math.pow((x1-x2),2)+pow((y1-y2),2))
+                print(line_len)
                 theta = math.atan2((y1-y2),(x1-x2))
+                theta1 = aveAngle(trajQ)
+                print(theta1)
 
                 #if the object is moving towards one end of the hockey table
                 if x1 < x2:
@@ -147,6 +184,8 @@ while True:
                         if intersectPoint != []:
                             (x3,y3) = intersectPoint[0]
                             cv2.line(frame, (int(x1),int(y1)), (int(x3),int(y3)), (0,0,255), 2)
+                            cv2.circle(frame, (int(x3),int(y3)), 8, (0, 0, 255), -1)
+
                             break
 
                         #if the puck headed towards one of the sidelines
